@@ -6,16 +6,16 @@ on:
   workflow_dispatch:
 
 jobs:
- start:
-  runs-on: ubuntu-latest
-  steps:
-    - name: Write summary header
-      run: |
-        echo "## Vehicle Assembly Pipeline" >> $GITHUB_STEP_SUMMARY
-        echo "Assembly started at $(date -u)" >> $GITHUB_STEP_SUMMARY
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary header
+        run: |
+          echo "## Vehicle Assembly Pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "Assembly started at $(date -u)" >> $GITHUB_STEP_SUMMARY
 
-    - name: Print start message
-      run: echo "Starting assembly of the vehicles"
+      - name: Print start message
+        run: echo "Starting assembly of the vehicles"
 
   build_car:
     needs: start
