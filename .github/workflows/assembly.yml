@@ -6,6 +6,12 @@ on:
   workflow_dispatch:
 
 jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print start message
+        run: echo "Starting assembly of the vehicles"
+
   build_car:
     needs: start
     runs-on: ubuntu-latest
@@ -59,6 +65,32 @@ jobs:
             build/spare_parts_motorbike.txt
           retention-days: 1
 
+  build_truck:
+    needs: start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assemble truck
+        run: |
+          mkdir -p build
+          echo "Chassis" > build/truck.txt
+          echo "Engine" >> build/truck.txt
+          echo "Wheels" >> build/truck.txt
+          echo "Cargo Bed" >> build/truck.txt
+          echo "Cabin" >> build/truck.txt
+          echo "Winter wheels for truck" > build/spare_parts_truck.txt
+          echo "Invoice for truck" > build/invoice_truck.txt
+          echo "Truck Assembly Completed!"
+          cat build/truck.txt
+
+      - name: Upload truck artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: truck-files
+          path: |
+            build/truck.txt
+            build/spare_parts_truck.txt
+          retention-days: 1
+
   test_car:
     needs: build_car
     runs-on: ubuntu-latest
@@ -93,32 +125,6 @@ jobs:
           grep "motorbike" build/spare_parts_motorbike.txt
           echo "Motorbike tests passed!"
 
-  build_truck:
-    needs: start
-    runs-on: ubuntu-latest
-    steps:
-      - name: Assemble truck
-        run: |
-          mkdir -p build
-          echo "Chassis" > build/truck.txt
-          echo "Engine" >> build/truck.txt
-          echo "Wheels" >> build/truck.txt
-          echo "Cargo Bed" >> build/truck.txt
-          echo "Cabin" >> build/truck.txt
-          echo "Winter wheels for truck" > build/spare_parts_truck.txt
-          echo "Invoice for truck" > build/invoice_truck.txt
-          echo "Truck Assembly Completed!"
-          cat build/truck.txt
-
-      - name: Upload truck artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: truck-files
-          path: |
-           build/truck.txt
-           build/spare_parts_truck.txt
-          retention-days: 1
-
   test_truck:
     needs: build_truck
     runs-on: ubuntu-latest
@@ -134,7 +140,7 @@ jobs:
           test -f build/truck.txt
           grep "Cargo Bed" build/truck.txt
           grep "truck" build/spare_parts_truck.txt
-          echo "Truck tests passed!"      
+          echo "Truck tests passed!"
 
   test_all:
     needs: [test_car, test_motorbike, test_truck]
@@ -156,12 +162,6 @@ jobs:
           test ! -f build/invoice_truck.txt
           echo "All vehicles present, no invoices leaked!"
 
-  start:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print start message
-        run: echo "Starting assembly of the vehicles"
-        
   deploy_car:
     needs: test_all
     runs-on: ubuntu-latest
@@ -176,7 +176,7 @@ jobs:
         run: |
           exit 1
           echo "Deploying car to production"
-          cat build/car.txt  
+          cat build/car.txt
 
       - name: Upload failure artifact
         if: failure()
@@ -185,7 +185,11 @@ jobs:
           name: car-files-failure
           path: build/car.txt
           retention-days: 3
-          
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for car"
+
   deploy_motorbike:
     needs: test_all
     runs-on: ubuntu-latest
@@ -199,16 +203,20 @@ jobs:
       - name: Deploy motorbike
         run: |
           echo "Deploying motorbike to production"
-          cat build/motorbike.txt     
+          cat build/motorbike.txt
 
       - name: Upload failure artifact
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: car-files-failure
-          path: build/car.txt
+          name: motorbike-files-failure
+          path: build/motorbike.txt
           retention-days: 3
-          
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for motorbike"
+
   deploy_truck:
     needs: test_all
     runs-on: ubuntu-latest
@@ -222,12 +230,36 @@ jobs:
       - name: Deploy truck
         run: |
           echo "Deploying truck to production"
-          cat build/truck.txt     
+          cat build/truck.txt
 
       - name: Upload failure artifact
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: car-files-failure
-          path: build/car.txt
-          retention-days: 3  
+          name: truck-files-failure
+          path: build/truck.txt
+          retention-days: 3
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for truck"
+
+  quality_report:
+    needs: [test_car, test_motorbike, test_truck]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: build/
+          merge-multiple: true
+
+      - name: Write quality report summary
+        run: |
+          echo "## Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Vehicle | File | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Car | car.txt | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+          echo "| Motorbike | motorbike.txt | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+          echo "| Truck | truck.txt | ✅ Present |" >> $GITHUB_STEP_SUMMARY
