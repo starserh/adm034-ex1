@@ -134,7 +134,7 @@ jobs:
           echo "Truck tests passed!"      
 
   test_all:
-    needs: [build_car, build_motorbike, build_truck]
+    needs: [test_car, test_motorbike, test_truck]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
